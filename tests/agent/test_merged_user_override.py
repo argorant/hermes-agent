@@ -61,3 +61,18 @@ def test_empty_gateway_timestamp_turn_preserves_all_unanswered_rows_on_live_and_
         assert _db_flush_row(agent, messages[1], True)["content"] == expected
         # A later non-empty override on the same row joins like the merge does.
         assert _db_flush_row(_agent_persisting("later"), messages[1], True)["content"] == expected + "\n\nlater"
+
+
+def test_a_merged_row_forgets_the_typed_ask_stamp():
+    """The stamp names one turn's text: once a consecutive-user merge folds more into the row,
+    ``previous_message`` must read the merged content, not half of it."""
+    from agent.agent_runtime_helpers import _merge_consecutive_users
+    from agent.message_metadata import TYPED_ASK
+    from agent.turn_context import _previous_user_message_text
+
+    merged, _ = _merge_consecutive_users([
+        {"role": "user", "content": "first ask", "display_metadata": {TYPED_ASK: "first ask", "keep": 1}},
+        {"role": "user", "content": "second ask"},
+    ])
+    assert merged[0]["display_metadata"] == {"keep": 1}
+    assert _previous_user_message_text(merged) == "first ask\n\nsecond ask"
